@@ -1,5 +1,6 @@
 #include "DShotRMT.h"
 
+#include <esp_check.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_log.h>
@@ -72,11 +73,11 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t dshot_mode)
             .clk_src = RMT_CLK_SRC_DEFAULT,
             .resolution_hz = DSHOT_RMT_RESOLUTION_HZ,
             .mem_block_symbols = MAX_BLOCKS,
+            .intr_priority = 1,
             .flags{
-                .with_dma = true,
+                .with_dma = false,
                 .io_loop_back = true,
             },
-            .intr_priority = 1,
         };
         ESP_ERROR_CHECK(rmt_new_rx_channel(&rmt_rx_channel_config, &rmt_rx_channel));
 
@@ -98,11 +99,11 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t dshot_mode)
         .clk_src = RMT_CLK_SRC_DEFAULT, // a clock that can provide needed resolution
         .resolution_hz = DSHOT_RMT_RESOLUTION_HZ,
         .mem_block_symbols = MAX_BLOCKS,
-        .trans_queue_depth = 1, // set the number of transactions that can be pending in the background
+        .trans_queue_depth = 4, // set the number of transactions that can be pending in the background
         .intr_priority = 1,
         .flags = {
             .invert_out = is_bidirectional,
-            .with_dma = true,
+            .with_dma = false,
             .io_loop_back = true,
         }};
     ESP_ERROR_CHECK(rmt_new_tx_channel(&rmt_tx_channel_config, &rmt_tx_channel));
@@ -171,6 +172,19 @@ void DShotRMT::begin()
     ESP_LOGI(TAG, "Done!");
 }
 
+void DShotRMT::begin_UNSAFE()
+{
+    ESP_LOGI(TAG, "Enable RMT TX channel");
+    ESP_ERROR_CHECK(rmt_enable(rmt_tx_channel));
+    mode = 1;
+    enabled = true;
+
+    // ESP_LOGI(TAG, "Resetting and Arming ESC...");
+    // sendTicks(0, pdMS_TO_TICKS(DSHOT_ARM_DELAY));
+
+    ESP_LOGI(TAG, "Done!");
+}
+
 void DShotRMT::sendThrottle(uint16_t throttle_value)
 {
     if (throttle_value > DSHOT_THROTTLE_MAX)
@@ -184,6 +198,16 @@ void DShotRMT::sendThrottle(uint16_t throttle_value)
 
     send(throttle_value);
 }
+
+void DShotRMT::sendCmd(uint16_t cmd)
+{
+    // ESP_RETURN_ON_FALSE(cmd < 48, ESP_ERR_INVALID_ARG, TAG, "Invalid command value");
+    if (cmd <= 48)
+    {
+        send(cmd);
+    }
+}
+
 
 uint32_t DShotRMT::getErpm()
 {

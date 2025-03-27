@@ -54,8 +54,14 @@ public:
     // The begin() function enalbes the DShotRMT class
     void begin();
 
+    // Same as begin(), but does not have arm delay
+    void begin_UNSAFE();
+
     // Sends a DShot packet with a given throttle value (between 48 and 2047). (non-blocking)
     void sendThrottle(uint16_t throttle_value);
+
+    // Sends a DShot command (between 0 and 47) (non-blocking)
+    void sendCmd(uint16_t cmd);
 
     // Gets the last received eRPM value (non-blocking)
     uint32_t getErpm();
@@ -64,11 +70,13 @@ public:
     // If no telemetry response is received within the expected time period, the function times out.
     esp_err_t waitForErpm(uint32_t &erpm);
 
+
     static float getErpmToRpmRatio(int poles)
     {
         static constexpr float ERPM_PER_LSB = 100.0f;
         return ERPM_PER_LSB / (poles / 2.0f);
     }
+    bool is_bidirectional = false;
 
 private:
     gpio_num_t gpio_num;
@@ -82,7 +90,7 @@ private:
     bool enabled = false;
     rmt_symbol_word_t rx_buf[MAX_BLOCKS];
     bool mode = false;
-    bool is_bidirectional = false;
+    // bool is_bidirectional = false;
     uint16_t telemetry_bit_len_ticks; // Length of one telemetry bit in RMT ticks
     uint32_t telemetry_timeout_us;    // Maximum time for one complete dhsot bidirectional send+receive cycle
     uint32_t telemetry_gcr = 0;       // Last recevied telemetry frame, GCR encoded
